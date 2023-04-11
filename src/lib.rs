@@ -1,7 +1,5 @@
-use std::borrow::Borrow;
-
-use components::rendering::{Mesh, MeshRenderer, Vertex};
-use shader_manager::ShaderManager;
+use components::rendering::{Material, Mesh, Renderer, Vertex};
+use material_manager::MaterialManager;
 use specs::DispatcherBuilder;
 use specs::{Builder, World, WorldExt};
 #[cfg(target_arch = "wasm32")]
@@ -12,7 +10,7 @@ use winit::{
     window::WindowBuilder,
 };
 mod components;
-mod shader_manager;
+mod material_manager;
 mod systems;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -27,6 +25,11 @@ pub async fn run() {
             "mesh_builder",
             &[],
         )
+        .with(
+            crate::systems::material_builder::MaterialBuilderSystem,
+            "material_builder",
+            &[],
+        )
         .with_thread_local(crate::systems::resizing::ResizingSystem)
         .with_thread_local(crate::systems::rendering::RenderSystem)
         .build();
@@ -35,28 +38,31 @@ pub async fn run() {
 
     app.world
         .create_entity()
-        .with(MeshRenderer::default())
+        .with(Renderer::default())
+        .with(Material {
+            diffuse_texture: "diffuse.jpeg".to_string(),
+        })
         .with(Mesh {
             vertices: vec![
                 Vertex {
                     position: [-0.0868241, 0.49240386, 0.0],
-                    color: [0.5, 0.0, 0.5],
+                    tex_coords: [0.4131759, 0.00759614],
                 }, // A
                 Vertex {
                     position: [-0.49513406, 0.06958647, 0.0],
-                    color: [0.5, 0.0, 0.5],
+                    tex_coords: [0.0048659444, 0.43041354],
                 }, // B
                 Vertex {
                     position: [-0.21918549, -0.44939706, 0.0],
-                    color: [0.5, 0.0, 0.5],
+                    tex_coords: [0.28081453, 0.949397],
                 }, // C
                 Vertex {
                     position: [0.35966998, -0.3473291, 0.0],
-                    color: [0.5, 0.0, 0.5],
+                    tex_coords: [0.85967, 0.84732914],
                 }, // D
                 Vertex {
                     position: [0.44147372, 0.2347359, 0.0],
-                    color: [0.5, 0.0, 0.5],
+                    tex_coords: [0.9414737, 0.2652641],
                 }, // E
             ],
             indices: vec![0, 1, 4, 1, 2, 4, 2, 3, 4],
@@ -207,8 +213,9 @@ impl Application {
 
         surface.configure(&device, &config);
 
-        let mut shader_manager = ShaderManager::new();
-        shader_manager.add_shader("default", &device, &config);
+        let mut material_manager = MaterialManager::new(&device);
+        material_manager.add_shader("default", &device, &config);
+        material_manager.add_texture_from_path("diffuse.jpeg".to_string(), &device, &queue);
 
         let mut world = World::new();
 
@@ -218,11 +225,12 @@ impl Application {
         world.insert(surface);
         world.insert(device);
         world.insert(queue);
-        world.insert(shader_manager);
+        world.insert(material_manager);
 
         // Components
         world.register::<Mesh>();
-        world.register::<MeshRenderer>();
+        world.register::<Renderer>();
+        world.register::<Material>();
 
         dispatcher.setup(&mut world);
 
