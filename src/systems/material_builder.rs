@@ -12,11 +12,10 @@ impl<'a> specs::System<'a> for MaterialBuilderSystem {
         specs::WriteStorage<'a, Renderer>,
         specs::ReadExpect<'a, MaterialManager>,
         specs::ReadExpect<'a, wgpu::Device>,
-        specs::ReadExpect<'a, wgpu::Queue>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mut materials, mut renderers, material_manager, device, queue) = data;
+        let (mut materials, mut renderers, material_manager, device) = data;
 
         use specs::Join;
         for (material, renderer) in (&mut materials, &mut renderers).join() {

@@ -1,4 +1,4 @@
-use components::rendering::{Material, Mesh, Renderer, Vertex};
+use components::rendering::{Camera, Material, Mesh, Renderer, Transform, Vertex};
 use material_manager::MaterialManager;
 use specs::DispatcherBuilder;
 use specs::{Builder, World, WorldExt};
@@ -30,6 +30,7 @@ pub async fn run() {
             "material_builder",
             &[],
         )
+        .with(crate::systems::camera::CameraSystem, "camera", &[])
         .with_thread_local(crate::systems::resizing::ResizingSystem)
         .with_thread_local(crate::systems::rendering::RenderSystem)
         .build();
@@ -231,6 +232,8 @@ impl Application {
         world.register::<Mesh>();
         world.register::<Renderer>();
         world.register::<Material>();
+        world.register::<Transform>();
+        world.register::<Camera>();
 
         dispatcher.setup(&mut world);
 
