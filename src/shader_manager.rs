@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::components::rendering::Vertex;
+
 pub struct ShaderManager {
     shaders: HashMap<String, ShaderInfo>,
 }
@@ -46,8 +48,8 @@ impl ShaderManager {
             layout: Some(&layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main", // 1.
-                buffers: &[],           // 2.
+                entry_point: "vs_main",           // 1.
+                buffers: &[Vertex::descriptor()], // 2.
             },
             fragment: Some(wgpu::FragmentState {
                 // 3.

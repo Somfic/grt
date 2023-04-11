@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use components::rendering::{Mesh, MeshRenderer};
+use components::rendering::{Mesh, MeshRenderer, Vertex};
 use shader_manager::ShaderManager;
 use specs::DispatcherBuilder;
 use specs::{Builder, World, WorldExt};
@@ -22,6 +22,11 @@ pub async fn run() {
     let event_loop = EventLoop::new();
     let window = create_window(&event_loop);
     let dispatcher = DispatcherBuilder::new()
+        .with(
+            crate::systems::mesh_builder::MeshBuilderSystem,
+            "mesh_builder",
+            &[],
+        )
         .with_thread_local(crate::systems::resizing::ResizingSystem)
         .with_thread_local(crate::systems::rendering::RenderSystem)
         .build();
@@ -30,9 +35,22 @@ pub async fn run() {
 
     app.world
         .create_entity()
-        .with(MeshRenderer {})
+        .with(MeshRenderer::default())
         .with(Mesh {
-            vertices: 0..3,
+            vertices: vec![
+                Vertex {
+                    position: [0.0, 0.5, 0.0],
+                    color: [1.0, 0.0, 0.0],
+                },
+                Vertex {
+                    position: [-0.5, -0.5, 0.0],
+                    color: [0.0, 1.0, 0.0],
+                },
+                Vertex {
+                    position: [0.5, -0.5, 0.0],
+                    color: [0.0, 0.0, 1.0],
+                },
+            ],
             indices: 0..1,
         })
         .build();

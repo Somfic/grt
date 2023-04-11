@@ -83,7 +83,8 @@ impl RenderSystem {
 
             let shader = shader_manager.get_shader("default");
             render_pass.set_pipeline(&shader.pipeline);
-            render_pass.draw(vertices, indices);
+            render_pass.set_vertex_buffer(0, renderer.vertex_buffer.as_ref().unwrap().slice(..));
+            render_pass.draw(0..vertices.len() as u32, indices);
         }
 
         drop(render_pass);
