@@ -1,3 +1,7 @@
+use std::borrow::Borrow;
+
+use components::rendering::{Mesh, MeshRenderer};
+use shader_manager::ShaderManager;
 use specs::DispatcherBuilder;
 use specs::{Builder, World, WorldExt};
 #[cfg(target_arch = "wasm32")]
@@ -7,6 +11,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+mod components;
+mod shader_manager;
 mod systems;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
@@ -21,6 +27,15 @@ pub async fn run() {
         .build();
 
     let mut app = Application::new(window, dispatcher).await;
+
+    app.world
+        .create_entity()
+        .with(MeshRenderer {})
+        .with(Mesh {
+            vertices: 0..3,
+            indices: 0..1,
+        })
+        .build();
 
     event_loop.run(move |event, _, control_flow| match event {
         Event::RedrawRequested(window_id) if window_id == app.window.id() => {
@@ -66,7 +81,7 @@ pub async fn run() {
 }
 
 fn initialise_logging() {
-    std::env::set_var("RUST_LOG", "debug,wgpu=warn");
+    std::env::set_var("RUST_LOG", "warn,grt=debug");
 
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -163,14 +178,25 @@ impl Application {
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };
+
         surface.configure(&device, &config);
 
+        let mut shader_manager = ShaderManager::new();
+        shader_manager.add_shader("default", &device, &config);
+
         let mut world = World::new();
+
+        // Resources
         world.insert(size);
         world.insert(config);
         world.insert(surface);
         world.insert(device);
         world.insert(queue);
+        world.insert(shader_manager);
+
+        // Components
+        world.register::<Mesh>();
+        world.register::<MeshRenderer>();
 
         dispatcher.setup(&mut world);
 

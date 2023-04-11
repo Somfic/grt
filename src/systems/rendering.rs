@@ -1,17 +1,33 @@
-use specs::{Read, ReadExpect};
+use specs::{shred::Fetch, storage::MaskedStorage, Read, ReadExpect, ReadStorage, Storage};
+
+use crate::{
+    components::rendering::{Mesh, MeshRenderer},
+    shader_manager::{self, ShaderManager},
+};
 
 pub struct RenderSystem;
 
 impl<'a> specs::System<'a> for RenderSystem {
     type SystemData = (
+        ReadStorage<'a, MeshRenderer>,
+        ReadStorage<'a, Mesh>,
         ReadExpect<'a, wgpu::Surface>,
         ReadExpect<'a, wgpu::Device>,
         ReadExpect<'a, wgpu::Queue>,
+        ReadExpect<'a, ShaderManager>,
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (surface, device, queue) = data;
-        match RenderSystem::render(self, surface, device, queue) {
+        let (mesh_renderers, meshes, surface, device, queue, shader_manager) = data;
+        match RenderSystem::render(
+            self,
+            mesh_renderers,
+            meshes,
+            surface,
+            device,
+            queue,
+            shader_manager,
+        ) {
             Ok(_) => (),
             Err(e) => {
                 // Panic
@@ -26,9 +42,12 @@ impl<'a> specs::System<'a> for RenderSystem {
 impl RenderSystem {
     fn render(
         &mut self,
+        mesh_renderers: Storage<MeshRenderer, Fetch<MaskedStorage<MeshRenderer>>>,
+        meshes: Storage<Mesh, Fetch<MaskedStorage<Mesh>>>,
         surface: Read<wgpu::Surface, specs::shred::PanicHandler>,
         device: Read<wgpu::Device, specs::shred::PanicHandler>,
         queue: Read<wgpu::Queue, specs::shred::PanicHandler>,
+        shader_manager: Read<ShaderManager, specs::shred::PanicHandler>,
     ) -> Result<(), wgpu::SurfaceError> {
         let output = surface.get_current_texture()?;
         let view = output
@@ -39,7 +58,7 @@ impl RenderSystem {
             label: Some("Render Encoder"),
         });
 
-        let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
@@ -56,6 +75,17 @@ impl RenderSystem {
             })],
             depth_stencil_attachment: None,
         });
+
+        use specs::Join;
+        for (mesh, renderer) in (&meshes, &mesh_renderers).join() {
+            let vertices = mesh.vertices.clone();
+            let indices = mesh.indices.clone();
+
+            let shader = shader_manager.get_shader("default");
+            render_pass.set_pipeline(&shader.pipeline);
+            render_pass.draw(vertices, indices);
+        }
+
         drop(render_pass);
 
         queue.submit(std::iter::once(encoder.finish()));
