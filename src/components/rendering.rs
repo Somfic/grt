@@ -6,13 +6,15 @@ use specs::{Component, VecStorage};
 #[storage(VecStorage)]
 pub struct MeshRenderer {
     pub vertex_buffer: Option<wgpu::Buffer>,
+    pub index_buffer: Option<wgpu::Buffer>,
+    pub indices_count: u32,
 }
 
 #[derive(Component, Default, Debug)]
 #[storage(VecStorage)]
 pub struct Mesh {
     pub vertices: Vec<Vertex>,
-    pub indices: Range<u32>,
+    pub indices: Vec<u16>,
 }
 
 #[repr(C)]

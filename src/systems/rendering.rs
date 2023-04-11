@@ -10,7 +10,6 @@ pub struct RenderSystem;
 impl<'a> specs::System<'a> for RenderSystem {
     type SystemData = (
         ReadStorage<'a, MeshRenderer>,
-        ReadStorage<'a, Mesh>,
         ReadExpect<'a, wgpu::Surface>,
         ReadExpect<'a, wgpu::Device>,
         ReadExpect<'a, wgpu::Queue>,
@@ -18,16 +17,8 @@ impl<'a> specs::System<'a> for RenderSystem {
     );
 
     fn run(&mut self, data: Self::SystemData) {
-        let (mesh_renderers, meshes, surface, device, queue, shader_manager) = data;
-        match RenderSystem::render(
-            self,
-            mesh_renderers,
-            meshes,
-            surface,
-            device,
-            queue,
-            shader_manager,
-        ) {
+        let (mesh_renderers, surface, device, queue, shader_manager) = data;
+        match RenderSystem::render(self, mesh_renderers, surface, device, queue, shader_manager) {
             Ok(_) => (),
             Err(e) => {
                 // Panic
@@ -43,7 +34,6 @@ impl RenderSystem {
     fn render(
         &mut self,
         mesh_renderers: Storage<MeshRenderer, Fetch<MaskedStorage<MeshRenderer>>>,
-        meshes: Storage<Mesh, Fetch<MaskedStorage<Mesh>>>,
         surface: Read<wgpu::Surface, specs::shred::PanicHandler>,
         device: Read<wgpu::Device, specs::shred::PanicHandler>,
         queue: Read<wgpu::Queue, specs::shred::PanicHandler>,
@@ -77,14 +67,19 @@ impl RenderSystem {
         });
 
         use specs::Join;
-        for (mesh, renderer) in (&meshes, &mesh_renderers).join() {
-            let vertices = mesh.vertices.clone();
-            let indices = mesh.indices.clone();
-
+        for renderer in mesh_renderers.join() {
             let shader = shader_manager.get_shader("default");
             render_pass.set_pipeline(&shader.pipeline);
             render_pass.set_vertex_buffer(0, renderer.vertex_buffer.as_ref().unwrap().slice(..));
-            render_pass.draw(0..vertices.len() as u32, indices);
+            render_pass.set_index_buffer(
+                renderer.index_buffer.as_ref().unwrap().slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
+            render_pass.draw_indexed(0..renderer.indices_count, 0, 0..1);
+
+            log::info!("Rendering mesh with {} indices", renderer.indices_count);
+            log::info!("Vertex buffer: {:?}", renderer.vertex_buffer);
+            log::info!("Index buffer: {:?}", renderer.index_buffer);
         }
 
         drop(render_pass);
