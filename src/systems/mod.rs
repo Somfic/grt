@@ -1,5 +1,4 @@
 pub mod camera;
-pub mod material_builder;
-pub mod mesh_builder;
+pub mod model_builder;
 pub mod rendering;
 pub mod resizing;

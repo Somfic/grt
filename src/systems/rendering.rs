@@ -19,12 +19,13 @@ impl<'a> specs::System<'a> for RenderSystem {
         ReadExpect<'a, wgpu::Surface>,
         ReadExpect<'a, wgpu::Device>,
         ReadExpect<'a, wgpu::Queue>,
+        ReadExpect<'a, wgpu::SurfaceConfiguration>,
         ReadExpect<'a, MaterialManager>,
     );
 
     fn run(
         &mut self,
-        (renderers, transforms, surface, device, queue, material_manager): Self::SystemData,
+        (renderers, transforms, surface, device, queue, config, material_manager): Self::SystemData,
     ) {
         let output = surface.get_current_texture().unwrap();
         let view = output
@@ -35,6 +36,7 @@ impl<'a> specs::System<'a> for RenderSystem {
             label: Some("Render Encoder"),
         });
 
+        let shader = material_manager.add_shader("default", &device, &config);
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -55,19 +57,24 @@ impl<'a> specs::System<'a> for RenderSystem {
 
         use specs::Join;
         for (renderer, transform) in (&renderers, &transforms).join() {
-            let shader = material_manager.get_shader("default");
             render_pass.set_pipeline(&shader.pipeline);
 
-            render_pass.set_bind_group(0, renderer.diffuse.as_ref().unwrap(), &[]);
+            render_pass.set_bind_group(
+                0,
+                renderer.materials[0].diffuse_bind.as_ref().unwrap(),
+                &[],
+            );
             render_pass.set_bind_group(1, transform.bind.as_ref().unwrap(), &[]);
 
-            render_pass.set_vertex_buffer(0, renderer.vertex_buffer.as_ref().unwrap().slice(..));
-            render_pass.set_index_buffer(
-                renderer.index_buffer.as_ref().unwrap().slice(..),
-                wgpu::IndexFormat::Uint16,
-            );
+            for mesh in renderer.meshes.iter() {
+                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.as_ref().unwrap().slice(..));
+                render_pass.set_index_buffer(
+                    mesh.index_buffer.as_ref().unwrap().slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
 
-            render_pass.draw_indexed(0..renderer.indices_count, 0, 0..1);
+                render_pass.draw_indexed(0..mesh.num_elements, 0, 0..1);
+            }
         }
 
         drop(render_pass);

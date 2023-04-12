@@ -1,8 +1,10 @@
-use cgmath::{Point3, Rotation3};
-use components::rendering::{Camera, Material, Mesh, Renderer, Transform, Vertex};
+use cgmath::{Point3, Rotation3, Vector3};
+use components::rendering::{Camera, Material, Mesh, Model, Renderer, Transform};
 use material_manager::MaterialManager;
 use specs::{Builder, World, WorldExt};
 use specs::{DispatcherBuilder, Join};
+use systems::camera::CameraSystem;
+use systems::model_builder::ModelBuilderSystem;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::{
@@ -21,17 +23,8 @@ pub async fn run() {
     let event_loop = EventLoop::new();
     let window = create_window(&event_loop);
     let dispatcher = DispatcherBuilder::new()
-        .with(
-            crate::systems::mesh_builder::MeshBuilderSystem,
-            "mesh_builder",
-            &[],
-        )
-        .with(
-            crate::systems::material_builder::MaterialBuilderSystem,
-            "material_builder",
-            &[],
-        )
-        .with(crate::systems::camera::CameraSystem, "camera", &[])
+        .with(ModelBuilderSystem, "model_builder", &[])
+        .with(CameraSystem, "camera", &[])
         .with(RotateSystem, "rotate", &[])
         .with_thread_local(crate::systems::resizing::ResizingSystem)
         .with_thread_local(crate::systems::rendering::RenderSystem)
@@ -41,49 +34,24 @@ pub async fn run() {
 
     app.world
         .create_entity()
+        .with(Model {
+            file: "cube.obj".to_string(),
+        })
         .with(Renderer::default())
-        .with(Material {
-            diffuse_texture: "diffuse.jpeg".to_string(),
-        })
         .with(Transform::default())
-        .with(Mesh {
-            vertices: vec![
-                Vertex {
-                    position: [-0.0868241, 0.49240386, 0.0],
-                    tex_coords: [0.4131759, 0.00759614],
-                }, // A
-                Vertex {
-                    position: [-0.49513406, 0.06958647, 0.0],
-                    tex_coords: [0.0048659444, 0.43041354],
-                }, // B
-                Vertex {
-                    position: [-0.21918549, -0.44939706, 0.0],
-                    tex_coords: [0.28081453, 0.949397],
-                }, // C
-                Vertex {
-                    position: [0.35966998, -0.3473291, 0.0],
-                    tex_coords: [0.85967, 0.84732914],
-                }, // D
-                Vertex {
-                    position: [0.44147372, 0.2347359, 0.0],
-                    tex_coords: [0.9414737, 0.2652641],
-                }, // E
-            ],
-            indices: vec![0, 1, 4, 1, 2, 4, 2, 3, 4],
-        })
         .build();
 
     app.world
         .create_entity()
+        .with(Camera::default())
         .with(Transform {
             position: Point3 {
                 x: 0.0,
                 y: 0.0,
-                z: 2.0,
+                z: 10.0,
             },
             ..Default::default()
         })
-        .with(Camera::default())
         .build();
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -143,7 +111,10 @@ fn initialise_logging() {
 }
 
 fn create_window(window_target: &EventLoop<()>) -> winit::window::Window {
-    let window = WindowBuilder::new().build(window_target).unwrap();
+    let window = WindowBuilder::new()
+        .with_title("grt")
+        .build(window_target)
+        .unwrap();
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -221,8 +192,8 @@ impl Application {
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width: size.width,
-            height: size.height,
+            width: 1,
+            height: 1,
             present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
@@ -230,9 +201,8 @@ impl Application {
 
         surface.configure(&device, &config);
 
-        let mut material_manager = MaterialManager::new(&device);
+        let material_manager = MaterialManager::new(&device);
         material_manager.add_shader("default", &device, &config);
-        material_manager.add_texture_from_path("diffuse.jpeg".to_string(), &device, &queue);
 
         let mut world = World::new();
 
@@ -245,9 +215,8 @@ impl Application {
         world.insert(material_manager);
 
         // Components
-        world.register::<Mesh>();
         world.register::<Renderer>();
-        world.register::<Material>();
+        world.register::<Model>();
         world.register::<Transform>();
         world.register::<Camera>();
 
@@ -291,7 +260,9 @@ impl<'a> specs::System<'a> for RotateSystem {
     fn run(&mut self, (mut transforms, renderer): Self::SystemData) {
         for (transform, _) in (&mut transforms, &renderer).join() {
             transform.rotation = transform.rotation
-                * cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.5));
+                * cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.5))
+                * cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(-0.5))
+                * cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(0.5));
         }
     }
 }

@@ -1,12 +1,8 @@
-use std::collections::HashMap;
-
 use image::GenericImageView;
 
 use crate::components::rendering::Vertex;
 
 pub struct MaterialManager {
-    shaders: HashMap<String, Shader>,
-    textures: HashMap<String, Texture>,
     texture_bind_group_layout: wgpu::BindGroupLayout,
     camera_bind_group_layout: wgpu::BindGroupLayout,
 }
@@ -26,8 +22,6 @@ pub struct Texture {
 impl MaterialManager {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
-            shaders: HashMap::new(),
-            textures: HashMap::new(),
             texture_bind_group_layout: device.create_bind_group_layout(
                 &wgpu::BindGroupLayoutDescriptor {
                     entries: &[
@@ -70,11 +64,11 @@ impl MaterialManager {
     }
 
     pub fn add_shader(
-        &mut self,
+        &self,
         name: impl Into<String>,
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration,
-    ) {
+    ) -> Shader {
         let name = name.into();
 
         let file = format!("{name}.wgsl");
@@ -136,37 +130,30 @@ impl MaterialManager {
             multiview: None, // 5.
         });
 
-        self.shaders.insert(
-            name,
-            Shader {
-                shader,
-                layout,
-                pipeline,
-            },
-        );
-    }
-
-    pub fn get_shader(&self, name: &str) -> &Shader {
-        self.shaders.get(name).expect("Couldn't find shader.")
+        Shader {
+            shader,
+            layout,
+            pipeline,
+        }
     }
 
     pub fn add_texture_from_path(
-        &mut self,
-        path: String,
+        &self,
+        path: &String,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) {
-        let img = image::open(path.to_string()).expect("Couldn't open texture file.");
-        self.add_texture(&img, path.to_string(), device, queue);
+    ) -> Texture {
+        let img = image::open(path).expect("Couldn't open texture file.");
+        self.add_texture(&img, path, device, queue)
     }
 
     pub fn add_texture(
-        &mut self,
+        &self,
         img: &image::DynamicImage,
-        name: String,
+        name: &String,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) {
+    ) -> Texture {
         let label = format!("{} Texture", name);
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
@@ -214,17 +201,11 @@ impl MaterialManager {
             ..Default::default()
         });
 
-        let texture = Texture {
+        Texture {
             texture,
             view,
             sampler,
-        };
-
-        self.textures.insert(name.into(), texture);
-    }
-
-    pub fn get_texture(&self, name: &String) -> &Texture {
-        self.textures.get(name).expect("Texture not found")
+        }
     }
 
     pub fn get_texture_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
