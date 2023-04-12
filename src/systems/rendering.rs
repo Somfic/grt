@@ -1,8 +1,13 @@
-use specs::{shred::Fetch, storage::MaskedStorage, Read, ReadExpect, ReadStorage, Storage};
+use cgmath::Vector3;
+use specs::{
+    shred::Fetch, storage::MaskedStorage, Read, ReadExpect, ReadStorage, Storage, WriteStorage,
+};
+use wgpu::{util::DeviceExt, BindGroup};
 
 use crate::{
-    components::rendering::{Mesh, Renderer},
+    components::rendering::{Camera, CameraUniform, Mesh, Renderer, Transform},
     material_manager::{self, MaterialManager},
+    systems::camera,
 };
 
 pub struct RenderSystem;
@@ -10,36 +15,18 @@ pub struct RenderSystem;
 impl<'a> specs::System<'a> for RenderSystem {
     type SystemData = (
         ReadStorage<'a, Renderer>,
+        ReadStorage<'a, Transform>,
         ReadExpect<'a, wgpu::Surface>,
         ReadExpect<'a, wgpu::Device>,
         ReadExpect<'a, wgpu::Queue>,
         ReadExpect<'a, MaterialManager>,
     );
 
-    fn run(&mut self, data: Self::SystemData) {
-        let (mesh_renderers, surface, device, queue, shader_manager) = data;
-        match RenderSystem::render(self, mesh_renderers, surface, device, queue, shader_manager) {
-            Ok(_) => (),
-            Err(e) => {
-                // Panic
-                panic!("Error rendering: {:?}", e);
-            }
-        }
-    }
-
-    fn setup(&mut self, world: &mut specs::World) {}
-}
-
-impl RenderSystem {
-    fn render(
+    fn run(
         &mut self,
-        mesh_renderers: Storage<Renderer, Fetch<MaskedStorage<Renderer>>>,
-        surface: Read<wgpu::Surface, specs::shred::PanicHandler>,
-        device: Read<wgpu::Device, specs::shred::PanicHandler>,
-        queue: Read<wgpu::Queue, specs::shred::PanicHandler>,
-        shader_manager: Read<MaterialManager, specs::shred::PanicHandler>,
-    ) -> Result<(), wgpu::SurfaceError> {
-        let output = surface.get_current_texture()?;
+        (renderers, transforms, surface, device, queue, material_manager): Self::SystemData,
+    ) {
+        let output = surface.get_current_texture().unwrap();
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -67,15 +54,19 @@ impl RenderSystem {
         });
 
         use specs::Join;
-        for renderer in mesh_renderers.join() {
-            let shader = shader_manager.get_shader("default");
+        for (renderer, transform) in (&renderers, &transforms).join() {
+            let shader = material_manager.get_shader("default");
             render_pass.set_pipeline(&shader.pipeline);
+
             render_pass.set_bind_group(0, renderer.diffuse.as_ref().unwrap(), &[]);
+            render_pass.set_bind_group(1, transform.bind.as_ref().unwrap(), &[]);
+
             render_pass.set_vertex_buffer(0, renderer.vertex_buffer.as_ref().unwrap().slice(..));
             render_pass.set_index_buffer(
                 renderer.index_buffer.as_ref().unwrap().slice(..),
                 wgpu::IndexFormat::Uint16,
             );
+
             render_pass.draw_indexed(0..renderer.indices_count, 0, 0..1);
         }
 
@@ -83,7 +74,5 @@ impl RenderSystem {
 
         queue.submit(std::iter::once(encoder.finish()));
         output.present();
-
-        Ok(())
     }
 }

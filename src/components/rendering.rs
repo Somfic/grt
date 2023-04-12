@@ -62,8 +62,8 @@ impl CameraUniform {
         }
     }
 
-    pub fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = camera.projection.into();
+    pub fn set_projection(&mut self, projection: cgmath::Matrix4<f32>) {
+        self.view_proj = projection.into();
     }
 }
 
@@ -76,10 +76,6 @@ pub struct Camera {
     pub fovy: f32,
     pub znear: f32,
     pub zfar: f32,
-
-    pub projection: cgmath::Matrix4<f32>,
-    pub uniform: Option<wgpu::Buffer>,
-    pub bind: Option<wgpu::BindGroup>,
 }
 
 impl Default for Camera {
@@ -91,9 +87,6 @@ impl Default for Camera {
             fovy: 45.0,
             znear: 0.001,
             zfar: 1000.0,
-            projection: cgmath::Matrix4::from_scale(1 as f32),
-            uniform: None,
-            bind: None,
         }
     }
 }
@@ -104,6 +97,8 @@ pub struct Transform {
     pub position: cgmath::Point3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
     pub scale: cgmath::Vector3<f32>,
+
+    pub bind: Option<wgpu::BindGroup>,
 }
 
 impl Default for Transform {
@@ -115,6 +110,7 @@ impl Default for Transform {
                 cgmath::Deg(0.0),
             ),
             scale: cgmath::Vector3::new(1.0, 1.0, 1.0),
+            bind: None,
         }
     }
 }

@@ -28,7 +28,7 @@ impl<'a> specs::System<'a> for MaterialBuilderSystem {
             let diffuse_texture = material_manager.get_texture(&material.diffuse_texture);
 
             let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: material_manager.get_bind_group_layout(),
+                layout: material_manager.get_texture_bind_group_layout(),
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,

@@ -7,7 +7,8 @@ use crate::components::rendering::Vertex;
 pub struct MaterialManager {
     shaders: HashMap<String, Shader>,
     textures: HashMap<String, Texture>,
-    bind_group_layout: wgpu::BindGroupLayout,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
+    camera_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 pub struct Shader {
@@ -27,29 +28,44 @@ impl MaterialManager {
         Self {
             shaders: HashMap::new(),
             textures: HashMap::new(),
-            bind_group_layout: device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
+            texture_bind_group_layout: device.create_bind_group_layout(
+                &wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("texture_bind_group_layout"),
+                },
+            ),
+            camera_bind_group_layout: device.create_bind_group_layout(
+                &wgpu::BindGroupLayoutDescriptor {
+                    entries: &[wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
                         },
                         count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the
-                        // corresponding Texture entry above.
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            }),
+                    }],
+                    label: Some("camera_bind_group_layout"),
+                },
+            ),
         }
     }
 
@@ -72,7 +88,10 @@ impl MaterialManager {
         let layout_name = format!("{} Layout", name);
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some(&layout_name),
-            bind_group_layouts: &[&self.bind_group_layout],
+            bind_group_layouts: &[
+                &self.texture_bind_group_layout,
+                &self.camera_bind_group_layout,
+            ],
             push_constant_ranges: &[],
         });
 
@@ -208,7 +227,11 @@ impl MaterialManager {
         self.textures.get(name).expect("Texture not found")
     }
 
-    pub fn get_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
-        &self.bind_group_layout
+    pub fn get_texture_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.texture_bind_group_layout
+    }
+
+    pub fn get_camera_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
+        &self.camera_bind_group_layout
     }
 }

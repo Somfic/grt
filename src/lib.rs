@@ -1,7 +1,8 @@
+use cgmath::{Point3, Rotation3};
 use components::rendering::{Camera, Material, Mesh, Renderer, Transform, Vertex};
 use material_manager::MaterialManager;
-use specs::DispatcherBuilder;
 use specs::{Builder, World, WorldExt};
+use specs::{DispatcherBuilder, Join};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 use winit::{
@@ -31,6 +32,7 @@ pub async fn run() {
             &[],
         )
         .with(crate::systems::camera::CameraSystem, "camera", &[])
+        .with(RotateSystem, "rotate", &[])
         .with_thread_local(crate::systems::resizing::ResizingSystem)
         .with_thread_local(crate::systems::rendering::RenderSystem)
         .build();
@@ -43,6 +45,7 @@ pub async fn run() {
         .with(Material {
             diffuse_texture: "diffuse.jpeg".to_string(),
         })
+        .with(Transform::default())
         .with(Mesh {
             vertices: vec![
                 Vertex {
@@ -68,6 +71,19 @@ pub async fn run() {
             ],
             indices: vec![0, 1, 4, 1, 2, 4, 2, 3, 4],
         })
+        .build();
+
+    app.world
+        .create_entity()
+        .with(Transform {
+            position: Point3 {
+                x: 0.0,
+                y: 0.0,
+                z: 2.0,
+            },
+            ..Default::default()
+        })
+        .with(Camera::default())
         .build();
 
     event_loop.run(move |event, _, control_flow| match event {
@@ -261,5 +277,21 @@ impl Application {
     fn update(&mut self) {
         self.dispatcher.dispatch(&mut self.world);
         self.world.maintain();
+    }
+}
+
+struct RotateSystem;
+
+impl<'a> specs::System<'a> for RotateSystem {
+    type SystemData = (
+        specs::WriteStorage<'a, Transform>,
+        specs::ReadStorage<'a, Renderer>,
+    );
+
+    fn run(&mut self, (mut transforms, renderer): Self::SystemData) {
+        for (transform, _) in (&mut transforms, &renderer).join() {
+            transform.rotation = transform.rotation
+                * cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(0.5));
+        }
     }
 }
