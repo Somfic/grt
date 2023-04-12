@@ -1,26 +1,17 @@
-use cgmath::Vector3;
-use specs::{
-    shred::Fetch, storage::MaskedStorage, Read, ReadExpect, ReadStorage, Storage, WriteStorage,
-};
-use wgpu::{util::DeviceExt, BindGroup};
-
-use crate::{
-    components::rendering::{Camera, CameraUniform, Mesh, Renderer, Transform},
-    material_manager::{self, MaterialManager},
-    systems::camera,
-};
+use crate::{material_manager::MaterialManager, Renderer, Transform};
+use specs::Join;
 
 pub struct RenderSystem;
 
 impl<'a> specs::System<'a> for RenderSystem {
     type SystemData = (
-        ReadStorage<'a, Renderer>,
-        ReadStorage<'a, Transform>,
-        ReadExpect<'a, wgpu::Surface>,
-        ReadExpect<'a, wgpu::Device>,
-        ReadExpect<'a, wgpu::Queue>,
-        ReadExpect<'a, wgpu::SurfaceConfiguration>,
-        ReadExpect<'a, MaterialManager>,
+        specs::ReadStorage<'a, Renderer>,
+        specs::ReadStorage<'a, Transform>,
+        specs::ReadExpect<'a, wgpu::Surface>,
+        specs::ReadExpect<'a, wgpu::Device>,
+        specs::ReadExpect<'a, wgpu::Queue>,
+        specs::ReadExpect<'a, wgpu::SurfaceConfiguration>,
+        specs::ReadExpect<'a, MaterialManager>,
     );
 
     fn run(
@@ -55,7 +46,6 @@ impl<'a> specs::System<'a> for RenderSystem {
             depth_stencil_attachment: None,
         });
 
-        use specs::Join;
         for (renderer, transform) in (&renderers, &transforms).join() {
             render_pass.set_pipeline(&shader.pipeline);
 

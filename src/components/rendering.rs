@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use cgmath::Rotation3;
 use specs::{Component, VecStorage};
 

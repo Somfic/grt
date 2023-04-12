@@ -1,8 +1,7 @@
-use cgmath::{Point3, Rotation3, Vector3};
-use components::rendering::{Camera, Material, Mesh, Model, Renderer, Transform};
+use cgmath::{Point3, Rotation3};
+use components::rendering::{Camera, Model, Renderer, Transform};
 use material_manager::MaterialManager;
-use specs::{Builder, World, WorldExt};
-use specs::{DispatcherBuilder, Join};
+use specs::{Builder, Join, WorldExt};
 use systems::camera::CameraSystem;
 use systems::model_builder::ModelBuilderSystem;
 #[cfg(target_arch = "wasm32")]
@@ -22,7 +21,7 @@ pub async fn run() {
 
     let event_loop = EventLoop::new();
     let window = create_window(&event_loop);
-    let dispatcher = DispatcherBuilder::new()
+    let dispatcher = specs::DispatcherBuilder::new()
         .with(ModelBuilderSystem, "model_builder", &[])
         .with(CameraSystem, "camera", &[])
         .with(RotateSystem, "rotate", &[])
@@ -186,9 +185,8 @@ impl Application {
             .formats
             .iter()
             .copied()
-            .filter(|f| f.describe().srgb)
-            .next()
-            .unwrap_or(surface_caps.formats[0]);
+            .find(|f| f.describe().srgb)
+            .unwrap();
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
@@ -204,7 +202,7 @@ impl Application {
         let material_manager = MaterialManager::new(&device);
         material_manager.add_shader("default", &device, &config);
 
-        let mut world = World::new();
+        let mut world = specs::World::new();
 
         // Resources
         world.insert(size);
@@ -244,7 +242,7 @@ impl Application {
     }
 
     fn update(&mut self) {
-        self.dispatcher.dispatch(&mut self.world);
+        self.dispatcher.dispatch(&self.world);
         self.world.maintain();
     }
 }

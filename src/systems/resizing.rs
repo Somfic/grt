@@ -1,6 +1,5 @@
-use specs::{Join, ReadExpect, WriteExpect, WriteStorage};
-
 use crate::components::rendering::Camera;
+use specs::{Join, ReadExpect, WriteExpect, WriteStorage};
 
 pub struct ResizingSystem;
 

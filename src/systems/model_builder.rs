@@ -1,9 +1,9 @@
-use wgpu::util::DeviceExt;
-
 use crate::{
     components::rendering::{Material, Mesh, Model, Renderer, Vertex},
     material_manager::MaterialManager,
 };
+use specs::Join;
+use wgpu::util::DeviceExt;
 
 pub struct ModelBuilderSystem;
 
@@ -11,16 +11,12 @@ impl<'a> specs::System<'a> for ModelBuilderSystem {
     type SystemData = (
         specs::ReadStorage<'a, Model>,
         specs::WriteStorage<'a, Renderer>,
-        specs::WriteExpect<'a, MaterialManager>,
+        specs::ReadExpect<'a, MaterialManager>,
         specs::ReadExpect<'a, wgpu::Device>,
         specs::ReadExpect<'a, wgpu::Queue>,
     );
 
-    fn run(
-        &mut self,
-        (models, mut renderers, mut material_manager, device, queue): Self::SystemData,
-    ) {
-        use specs::Join;
+    fn run(&mut self, (models, mut renderers, material_manager, device, queue): Self::SystemData) {
         for (model, renderer) in (&models, &mut renderers).join() {
             // TODO: Find a way to check if the model has changed
             let needs_update = renderer.meshes.is_empty() || renderer.materials.is_empty();
@@ -41,7 +37,7 @@ impl<'a> specs::System<'a> for ModelBuilderSystem {
                     ..Default::default()
                 },
                 |p| {
-                    let material_text = std::fs::read_to_string(&p).unwrap();
+                    let material_text = std::fs::read_to_string(p).unwrap();
                     let material_cursor = std::io::Cursor::new(material_text);
                     let mut material_reader = std::io::BufReader::new(material_cursor);
 
